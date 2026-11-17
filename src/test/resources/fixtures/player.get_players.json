@@ -1,0 +1,36 @@
+{
+  "heos": {
+    "command": "player/get_players",
+    "result": "success",
+    "message": ""
+  },
+  "payload": [
+    {
+      "name": "Living Room",
+      "pid": -409995282,
+      "gid": -409995282,
+      "model": "HEOS 7",
+      "version": "3.34.620",
+      "ip": "192.0.2.21",
+      "network": "wired",
+      "lineout": 1,
+      "serial": "SN0000001"
+    },
+    {
+      "name": "Kitchen",
+      "pid": "1083491543",
+      "gid": "-409995282",
+      "model": "HEOS 1",
+      "version": "3.34.620",
+      "ip": "192.0.2.22",
+      "network": "wifi",
+      "lineout": 2,
+      "control": 4
+    },
+    {
+      "name": "Old Link",
+      "pid": 3,
+      "model": "HEOS Link"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "heos": {
+    "command": "browse/browse",
+    "result": "success",
+    "message": "sid=546978854&returned=2&count=2"
+  },
+  "payload": [
+    {
+      "container": "no",
+      "mid": "inputs/cable_sat",
+      "type": "station",
+      "playable": "yes",
+      "name": "Theater Receiver - CBL/SAT",
+      "image_url": ""
+    },
+    {
+      "container": "no",
+      "mid": "inputs/dvd",
+      "type": "station",
+      "playable": "yes",
+      "name": "Theater Receiver - DVD",
+      "image_url": ""
+    }
+  ]
+}

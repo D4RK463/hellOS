@@ -1,0 +1,15 @@
+{
+  "heos": {
+    "command": "player/get_player_info",
+    "result": "success",
+    "message": "pid=1083491543"
+  },
+  "payload": {
+    "name": "Kitchen",
+    "pid": 1083491543,
+    "model": "HEOS 1",
+    "version": "3.34.620",
+    "network": "wifi",
+    "lineout": 1
+  }
+}

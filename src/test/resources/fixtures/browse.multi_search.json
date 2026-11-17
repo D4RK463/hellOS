@@ -1,0 +1,26 @@
+{
+  "heos": {
+    "command": "browse/multi_search",
+    "result": "success",
+    "message": "search=Rays&sid=1,10,13&scid=0,1,2,3&returned=2&count=74&stats=(10,2,2,2),(1,0,57,57)&errno=(13,0,2),(8,0,-1061)"
+  },
+  "payload": [
+    {
+      "container": "yes",
+      "type": "album",
+      "artist": "Some DJ",
+      "cid": "LIBALBUM-401193042",
+      "playable": "yes",
+      "name": "Rays",
+      "image_url": ""
+    },
+    {
+      "container": "no",
+      "mid": "CREATE_STATION-R66030",
+      "type": "station",
+      "playable": "yes",
+      "name": "Rays Radio",
+      "image_url": ""
+    }
+  ]
+}

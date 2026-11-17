@@ -1,0 +1,20 @@
+{
+  "heos": {
+    "command": "browse/search",
+    "result": "success",
+    "message": "sid=10&scid=3&search=Rays&returned=1&count=15"
+  },
+  "payload": [
+    {
+      "container": "no",
+      "mid": "401192836",
+      "type": "song",
+      "artist": "Some DJ",
+      "album": "Rays",
+      "album_id": "401192835",
+      "playable": "yes",
+      "name": "Rays",
+      "image_url": ""
+    }
+  ]
+}

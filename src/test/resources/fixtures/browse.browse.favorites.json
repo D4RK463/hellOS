@@ -1,0 +1,35 @@
+{
+  "heos": {
+    "command": "browse/browse",
+    "result": "success",
+    "message": "sid=1028&returned=2&count=2"
+  },
+  "payload": [
+    {
+      "container": "no",
+      "mid": "s7332",
+      "type": "station",
+      "playable": "yes",
+      "name": "Classical %26 Jazz",
+      "image_url": "http://example.com/s.png"
+    },
+    {
+      "container": "no",
+      "mid": "3790855220637622543",
+      "type": "station",
+      "playable": "yes",
+      "name": "Thumbprint Radio",
+      "image_url": ""
+    }
+  ],
+  "options": [
+    {
+      "browse": [
+        {
+          "id": 20,
+          "name": "Remove from HEOS Favorites"
+        }
+      ]
+    }
+  ]
+}

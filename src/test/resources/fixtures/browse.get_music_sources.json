@@ -1,0 +1,38 @@
+{
+  "heos": {
+    "command": "browse/get_music_sources",
+    "result": "success",
+    "message": ""
+  },
+  "payload": [
+    {
+      "name": "Pandora",
+      "image_url": "https://example.com/pandora.png",
+      "type": "music_service",
+      "sid": 1,
+      "available": "true",
+      "service_username": "listener"
+    },
+    {
+      "name": "TuneIn",
+      "image_url": "https://example.com/tunein.png",
+      "type": "music_service",
+      "sid": 3,
+      "available": "false"
+    },
+    {
+      "name": "Local Music",
+      "image_url": "",
+      "type": "heos_server",
+      "sid": 1024,
+      "available": "true"
+    },
+    {
+      "name": "Favorites",
+      "image_url": "",
+      "type": "heos_service",
+      "sid": 1028,
+      "available": "true"
+    }
+  ]
+}

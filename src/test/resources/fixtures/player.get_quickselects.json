@@ -1,0 +1,17 @@
+{
+  "heos": {
+    "command": "player/get_quickselects",
+    "result": "success",
+    "message": "pid=1"
+  },
+  "payload": [
+    {
+      "id": 1,
+      "name": "Quick Select 1"
+    },
+    {
+      "id": 2,
+      "name": "TV"
+    }
+  ]
+}

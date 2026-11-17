@@ -1,0 +1,19 @@
+{
+  "heos": {
+    "command": "player/get_now_playing_media",
+    "result": "success",
+    "message": "pid=1"
+  },
+  "payload": {
+    "type": "song",
+    "song": "Rock %26 Roll",
+    "album": "Greatest Hits",
+    "artist": "Some Band",
+    "image_url": "http://192.0.2.50/cover.jpg",
+    "mid": "m-17",
+    "qid": 3,
+    "sid": 1024,
+    "album_id": "a-9"
+  },
+  "options": []
+}

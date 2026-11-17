@@ -1,0 +1,22 @@
+{
+  "heos": {
+    "command": "browse/retrieve_metadata",
+    "result": "success",
+    "message": "sid=6&cid=123456&returned=1&count=1"
+  },
+  "payload": [
+    {
+      "album_id": "7890",
+      "images": [
+        {
+          "image_url": "http://example.com/640.jpg",
+          "width": 640
+        },
+        {
+          "image_url": "http://example.com/320.jpg",
+          "width": 320
+        }
+      ]
+    }
+  ]
+}

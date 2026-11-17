@@ -1,0 +1,43 @@
+{
+  "heos": {
+    "command": "browse/browse",
+    "result": "success",
+    "message": "sid=10&cid=LIBALBUM-1&returned=2&count=2"
+  },
+  "payload": [
+    {
+      "container": "no",
+      "mid": "t-1",
+      "type": "song",
+      "playable": "yes",
+      "name": "Track One",
+      "artist": "Some Band",
+      "album": "Greatest Hits",
+      "album_id": "a-9",
+      "image_url": ""
+    },
+    {
+      "container": "yes",
+      "cid": "LIBPLAYLIST-7",
+      "type": "playlist",
+      "playable": "yes",
+      "name": "Road Trip",
+      "image_url": ""
+    }
+  ],
+  "options": [
+    {
+      "browse": [
+        {
+          "id": 13,
+          "scid": 1,
+          "name": "Create New Station by Artists"
+        },
+        {
+          "id": 21,
+          "name": "Playable Container"
+        }
+      ]
+    }
+  ]
+}

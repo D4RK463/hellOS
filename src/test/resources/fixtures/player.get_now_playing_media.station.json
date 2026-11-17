@@ -1,0 +1,36 @@
+{
+  "heos": {
+    "command": "player/get_now_playing_media",
+    "result": "success",
+    "message": "pid=1"
+  },
+  "payload": {
+    "type": "station",
+    "song": "Morning Show",
+    "station": "Example Radio",
+    "album": "",
+    "artist": "Host",
+    "image_url": "",
+    "mid": "s1234",
+    "qid": 1,
+    "sid": 3
+  },
+  "options": [
+    {
+      "play": [
+        {
+          "id": 11,
+          "name": "Thumbs Up"
+        },
+        {
+          "id": 12,
+          "name": "Thumbs Down"
+        },
+        {
+          "id": 19,
+          "name": "Add to HEOS Favorites"
+        }
+      ]
+    }
+  ]
+}
