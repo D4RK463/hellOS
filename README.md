@@ -2,7 +2,10 @@
 
 A Java library for the HEOS CLI protocol of Denon and Marantz devices.
 
-> Status: early development, not yet tested against real devices.
+> Status: early development. Discovery, connecting and read-only queries (players, groups,
+> volume, play state, now playing), volume changes (`setVolume`, `volumeUp`, `volumeDown`) and
+> volume change events have been tested against a HEOS AVR; other commands that change state are
+> not yet tested against real devices.
 
 ## Requirements
 
@@ -48,6 +51,19 @@ heos.connect()
 
 Devices can also be found automatically: `HeosSystem.discoverAndConnect(Duration.ofSeconds(3))`.
 
+> **Firewall note:** discovery sends an SSDP search to `239.255.255.250:1900`. HEOS devices answer
+> with a unicast UDP packet from a **random source port**, not from port 1900. A host firewall that
+> only allows replies from port 1900 drops these answers, and discovery finds nothing while a direct
+> connection to the device's IP still works. Allow incoming UDP from the HEOS devices, for example
+> with ufw:
+>
+> ```bash
+> sudo ufw allow proto udp from 192.168.1.20               # one device
+> sudo ufw allow proto udp from 192.168.1.0/24             # whole local network (broader)
+> ```
+>
+> If no firewall rule is possible, connect to the device's IP directly.
+
 ### Events
 
 ```java
@@ -59,6 +75,11 @@ heos.addEventListener(event -> {
     }
 });
 ```
+
+Devices may send the same change event more than once (a HEOS AVR sends every
+`player_volume_changed` twice). The library passes events on as received, so listeners should be
+idempotent: treat an event as "this is the current state" or "something changed, query again",
+not as "exactly one change happened".
 
 ## Architecture
 
