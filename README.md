@@ -5,7 +5,7 @@ A Java library for the HEOS CLI protocol of Denon and Marantz devices.
 > Status: early development. Discovery, connecting and read-only queries (players, groups,
 > volume, play state, now playing), volume changes (`setVolume`, `volumeUp`, `volumeDown`) and
 > volume change events have been tested against a HEOS AVR; other commands that change state are
-> not yet tested against real devices. Android 14 (API 34) and newer is supported since 0.2.0: the
+> not yet tested against real devices. Android 14 (API 34) and newer is supported since 0.1.1: the
 > build checks the library against the Android API, but it has not yet been run in an app on a real
 > Android device.
 
@@ -94,7 +94,7 @@ dependency, Jackson has to be added as well, since the jar does not contain it:
 
 ```kotlin
 dependencies {
-    implementation(files("libs/hellOS-0.2.0.jar"))
+    implementation(files("libs/hellOS-0.1.1.jar"))
     implementation("tools.jackson.core:jackson-databind:3.3.0") // brings jackson-core and jackson-annotations
 }
 ```

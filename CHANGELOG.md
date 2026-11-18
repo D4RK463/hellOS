@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0
+## 0.1.1
 
 Android support: the library runs unchanged on Android 14 (API 34) and newer. The public API is
 unchanged; on the JVM the library behaves as before.

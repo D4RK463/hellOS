@@ -244,6 +244,7 @@ class HeosClientTest {
     }
 
     @Test
+    @SuppressWarnings("try") // the resource only switches the fallback on and off
     void fallsBackToPlatformThreadsWithoutVirtualThreads() throws Exception {
         List<Thread> callbackThreads = new CopyOnWriteArrayList<>();
         try (AutoCloseable fallback = ThreadsTesting.simulateVirtualThreadsUnavailable()) {

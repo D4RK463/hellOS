@@ -91,7 +91,7 @@ public final class MessageParameters {
      * All decoded values in received order, as unmodifiable map. Same content as {@link #asMap()},
      * also available on Android.
      *
-     * @since 0.2.0
+     * @since 0.1.1
      */
     public Map<String, String> parameterMap() {
         return valueView;

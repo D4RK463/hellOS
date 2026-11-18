@@ -601,7 +601,7 @@ public final class HeosClient implements AutoCloseable {
          * {@code null}: virtual threads where available, named platform daemon threads otherwise
          * (always on Android).
          *
-         * @since 0.2.0
+         * @since 0.1.1
          */
         public Builder threadFactory(ThreadFactory threadFactory) {
             this.threadFactory = threadFactory;

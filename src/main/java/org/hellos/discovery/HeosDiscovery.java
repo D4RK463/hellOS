@@ -219,7 +219,7 @@ public final class HeosDiscovery {
          * {@code null}: a virtual thread where available, a platform daemon thread otherwise
          * (always on Android).
          *
-         * @since 0.2.0
+         * @since 0.1.1
          */
         public Builder threadFactory(ThreadFactory threadFactory) {
             this.threadFactory = threadFactory;

@@ -95,7 +95,7 @@ public final class HeosCommand {
      * The unescaped attributes in insertion order, as unmodifiable map. Same content as
      * {@link #attributes()}, also available on Android.
      *
-     * @since 0.2.0
+     * @since 0.1.1
      */
     public Map<String, String> attributeMap() {
         return attributeView;
