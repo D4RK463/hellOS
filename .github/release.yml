@@ -1,0 +1,14 @@
+# Groups the automatically generated release notes by pull request label.
+changelog:
+  exclude:
+    labels:
+      - no-release
+  categories:
+    - title: Breaking changes
+      labels: [major, breaking-change]
+    - title: Features
+      labels: [minor, enhancement, feature]
+    - title: Bug fixes
+      labels: [bug, fix]
+    - title: Other changes
+      labels: ["*"]

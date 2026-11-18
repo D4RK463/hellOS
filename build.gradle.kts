@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "org.hellos"
-version = "0.1.0-SNAPSHOT"
+version = providers.gradleProperty("releaseVersion").getOrElse("0.1.0-SNAPSHOT")
 description = "Java library for the Denon/Marantz HEOS CLI protocol"
 
 java {
