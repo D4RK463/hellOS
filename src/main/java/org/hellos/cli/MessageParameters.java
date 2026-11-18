@@ -11,6 +11,8 @@ import java.util.OptionalLong;
 import java.util.SequencedMap;
 import java.util.StringJoiner;
 
+import org.hellos.internal.JvmOnly;
+
 /**
  * The parsed {@code message} field of a HEOS response, e.g. {@code pid=1&level=20}.
  *
@@ -26,11 +28,14 @@ public final class MessageParameters {
     private static final MessageParameters EMPTY = new MessageParameters("", new LinkedHashMap<>());
 
     private final String raw;
-    private final SequencedMap<String, String> values;
+    /** Never modified after construction; kept as LinkedHashMap for {@link #asMap()}. */
+    private final LinkedHashMap<String, String> values;
+    private final Map<String, String> valueView;
 
-    private MessageParameters(String raw, SequencedMap<String, String> values) {
+    private MessageParameters(String raw, LinkedHashMap<String, String> values) {
         this.raw = raw;
-        this.values = Collections.unmodifiableSequencedMap(values);
+        this.values = values;
+        this.valueView = Collections.unmodifiableMap(values);
     }
 
     public static MessageParameters empty() {
@@ -41,7 +46,7 @@ public final class MessageParameters {
         if (raw == null || raw.isEmpty()) {
             return EMPTY;
         }
-        SequencedMap<String, String> values = new LinkedHashMap<>();
+        LinkedHashMap<String, String> values = new LinkedHashMap<>();
         int start = 0;
         while (start <= raw.length()) {
             if (raw.startsWith(HeosCommand.URL_ATTRIBUTE + "=", start)) {
@@ -71,9 +76,25 @@ public final class MessageParameters {
         return raw;
     }
 
-    /** All decoded values in received order. */
+    /**
+     * All decoded values in received order.
+     *
+     * <p>Not available on Android (API 34 has no {@code SequencedMap}); use {@link #parameterMap()}
+     * there.
+     */
+    @JvmOnly
     public SequencedMap<String, String> asMap() {
-        return values;
+        return Collections.unmodifiableSequencedMap(values);
+    }
+
+    /**
+     * All decoded values in received order, as unmodifiable map. Same content as {@link #asMap()},
+     * also available on Android.
+     *
+     * @since 0.2.0
+     */
+    public Map<String, String> parameterMap() {
+        return valueView;
     }
 
     public boolean isEmpty() {

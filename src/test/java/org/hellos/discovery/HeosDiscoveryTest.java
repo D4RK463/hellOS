@@ -91,6 +91,37 @@ class HeosDiscoveryTest {
         }
     }
 
+    @Test
+    void searchesOnThreadOfConfiguredFactory() throws Exception {
+        try (FakeResponder responder = new FakeResponder(HEOS_RESPONSE.formatted("127.0.0.1"))) {
+            List<Thread> created = new CopyOnWriteArrayList<>();
+            HeosDiscovery discovery = HeosDiscovery.builder()
+                    .timeout(Duration.ofMillis(500))
+                    .bindAddress(InetAddress.getLoopbackAddress())
+                    .target(responder.address())
+                    .threadFactory(task -> {
+                        Thread thread = new Thread(task);
+                        created.add(thread);
+                        return thread;
+                    })
+                    .build();
+            List<Thread> callbackThreads = new CopyOnWriteArrayList<>();
+
+            DiscoveredDevice device = discovery.discoverFirst().get(3, TimeUnit.SECONDS);
+            discovery.discoverAll(found -> callbackThreads.add(Thread.currentThread())).get(3, TimeUnit.SECONDS);
+
+            assertThat(device.host()).isEqualTo("127.0.0.1");
+            assertThat(created).hasSize(2).allSatisfy(thread -> assertThat(thread.getName()).isEqualTo("hellos-discovery"));
+            assertThat(callbackThreads).hasSize(1).first().isSameAs(created.get(1));
+        }
+    }
+
+    @Test
+    void searchRequestLimitsMx() {
+        assertThat(HeosDiscovery.builder().timeout(Duration.ofMillis(200)).build().searchRequest()).contains("MX: 1\r\n");
+        assertThat(HeosDiscovery.builder().timeout(Duration.ofSeconds(30)).build().searchRequest()).contains("MX: 5\r\n");
+    }
+
     /** Answers every UDP packet on localhost with a fixed response (or not at all). */
     private static final class FakeResponder implements AutoCloseable {
         private final DatagramSocket socket;

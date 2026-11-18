@@ -12,6 +12,7 @@ import java.net.ServerSocket;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 import org.hellos.cli.Commands;
@@ -19,6 +20,7 @@ import org.hellos.cli.Events;
 import org.hellos.cli.HeosCommand;
 import org.hellos.cli.HeosConnectionException;
 import org.hellos.cli.HeosMessage;
+import org.hellos.internal.ThreadsTesting;
 import org.hellos.testing.FakeHeosServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -225,5 +227,58 @@ class HeosClientTest {
         try (ServerSocket socket = new ServerSocket(0)) {
             return socket.getLocalPort();
         }
+    }
+
+    @Test
+    void usesVirtualThreadsByDefault() throws Exception {
+        List<Thread> callbackThreads = new CopyOnWriteArrayList<>();
+        client = builder().build();
+        client.addConnectionListener((state, host, cause) -> callbackThreads.add(Thread.currentThread()));
+        client.connect().get(3, TimeUnit.SECONDS);
+
+        waitUntil(() -> callbackThreads.size() == 2);
+        assertThat(callbackThreads).allSatisfy(thread -> {
+            assertThat(thread.isVirtual()).isTrue();
+            assertThat(thread.getName()).isEqualTo("hellos-callbacks");
+        });
+    }
+
+    @Test
+    void fallsBackToPlatformThreadsWithoutVirtualThreads() throws Exception {
+        List<Thread> callbackThreads = new CopyOnWriteArrayList<>();
+        try (AutoCloseable fallback = ThreadsTesting.simulateVirtualThreadsUnavailable()) {
+            client = builder().build();
+            client.addConnectionListener((state, host, cause) -> callbackThreads.add(Thread.currentThread()));
+            client.connect().get(3, TimeUnit.SECONDS);
+        }
+
+        assertThat(client.send(HeosCommand.of(Commands.PLAYER_GET_PLAYERS)).get(2, TimeUnit.SECONDS).isSuccess())
+                .isTrue();
+        waitUntil(() -> callbackThreads.size() == 2);
+        assertThat(callbackThreads).allSatisfy(thread -> {
+            assertThat(thread.isVirtual()).isFalse();
+            assertThat(thread.isDaemon()).isTrue();
+            assertThat(thread.getName()).isEqualTo("hellos-callbacks");
+        });
+    }
+
+    @Test
+    void createsAllThreadsWithTheConfiguredFactory() throws Exception {
+        List<Thread> created = new CopyOnWriteArrayList<>();
+        ThreadFactory factory = task -> {
+            Thread thread = new Thread(task);
+            thread.setDaemon(true);
+            created.add(thread);
+            return thread;
+        };
+        start(builder().heartbeatInterval(Duration.ofMillis(100)).threadFactory(factory));
+
+        assertThat(client.send(HeosCommand.of(Commands.PLAYER_GET_PLAYERS)).get(2, TimeUnit.SECONDS).isSuccess())
+                .isTrue();
+        String suffix = server.host() + ":" + server.port();
+        waitUntil(() -> created.stream().map(Thread::getName).toList().containsAll(List.of(
+                "hellos-connect", "hellos-callbacks", "hellos-heartbeat",
+                "hellos-reader-" + suffix, "hellos-writer-" + suffix)));
+        assertThat(created).noneMatch(Thread::isVirtual);
     }
 }

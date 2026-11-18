@@ -8,6 +8,8 @@ import java.util.Objects;
 import java.util.SequencedMap;
 import java.util.regex.Pattern;
 
+import org.hellos.internal.JvmOnly;
+
 /**
  * A command that is sent to a HEOS device, e.g. {@code heos://player/set_volume?pid=1&level=20}.
  *
@@ -30,15 +32,18 @@ public final class HeosCommand {
     private static final Pattern KEY = Pattern.compile("[A-Za-z0-9_]+");
 
     private final String name;
-    private final SequencedMap<String, String> attributes;
+    /** Never modified after construction; kept as LinkedHashMap for {@link #attributes()}. */
+    private final LinkedHashMap<String, String> attributes;
+    private final Map<String, String> attributeView;
 
-    private HeosCommand(String name, SequencedMap<String, String> attributes) {
+    private HeosCommand(String name, LinkedHashMap<String, String> attributes) {
         if (!NAME.matcher(name).matches()) {
             throw new IllegalArgumentException("Invalid command name '" + name + "', expected 'group/command'");
         }
         attributes.forEach(HeosCommand::validateAttribute);
         this.name = name;
-        this.attributes = Collections.unmodifiableSequencedMap(attributes);
+        this.attributes = attributes;
+        this.attributeView = Collections.unmodifiableMap(attributes);
     }
 
     /** Creates a command without attributes, e.g. {@code HeosCommand.of("player/get_players")}. */
@@ -75,9 +80,25 @@ public final class HeosCommand {
         return name.substring(name.indexOf('/') + 1);
     }
 
-    /** The unescaped attributes in insertion order. */
+    /**
+     * The unescaped attributes in insertion order.
+     *
+     * <p>Not available on Android (API 34 has no {@code SequencedMap}); use {@link #attributeMap()}
+     * there.
+     */
+    @JvmOnly
     public SequencedMap<String, String> attributes() {
-        return attributes;
+        return Collections.unmodifiableSequencedMap(attributes);
+    }
+
+    /**
+     * The unescaped attributes in insertion order, as unmodifiable map. Same content as
+     * {@link #attributes()}, also available on Android.
+     *
+     * @since 0.2.0
+     */
+    public Map<String, String> attributeMap() {
+        return attributeView;
     }
 
     /** Returns the attribute value or {@code null} if absent. */
@@ -150,7 +171,7 @@ public final class HeosCommand {
     public static final class Builder {
 
         private final String name;
-        private final SequencedMap<String, String> attributes = new LinkedHashMap<>();
+        private final Map<String, String> attributes = new LinkedHashMap<>();
 
         private Builder(String name) {
             this.name = Objects.requireNonNull(name, "name");

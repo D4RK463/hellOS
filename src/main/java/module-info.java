@@ -4,6 +4,7 @@
  */
 module org.hellos {
     requires transitive tools.jackson.databind;
+    requires java.logging;
 
     exports org.hellos.cli;
     exports org.hellos.connection;
