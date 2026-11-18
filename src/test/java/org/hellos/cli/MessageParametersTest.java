@@ -17,6 +17,11 @@ class MessageParametersTest {
         assertThat(params.asMap()).containsExactly(
                 org.assertj.core.api.Assertions.entry("pid", "-409995282"),
                 org.assertj.core.api.Assertions.entry("level", "30"));
+        assertThat(params.parameterMap()).containsExactly(
+                org.assertj.core.api.Assertions.entry("pid", "-409995282"),
+                org.assertj.core.api.Assertions.entry("level", "30"));
+        assertThatThrownBy(() -> params.parameterMap().put("x", "y")).isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> params.asMap().put("x", "y")).isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package org.hellos.discovery;
 
-import static java.lang.System.Logger.Level.DEBUG;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -21,9 +20,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadFactory;
 import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.hellos.cli.HeosConnectionException;
+import org.hellos.internal.Threads;
 
 /**
  * Finds HEOS devices in the local network with UPnP SSDP (spec section 2).
@@ -39,17 +42,19 @@ public final class HeosDiscovery {
 
     static final InetSocketAddress SSDP_MULTICAST = new InetSocketAddress("239.255.255.250", 1900);
 
-    private static final System.Logger LOG = System.getLogger(HeosDiscovery.class.getName());
+    private static final Logger LOG = Logger.getLogger(HeosDiscovery.class.getName());
     private static final int SEND_COUNT = 2;
 
     private final Duration timeout;
     private final InetAddress bindAddress;
     private final InetSocketAddress target;
+    private final ThreadFactory threadFactory;
 
     private HeosDiscovery(Builder builder) {
         this.timeout = builder.timeout;
         this.bindAddress = builder.bindAddress;
         this.target = builder.target;
+        this.threadFactory = builder.threadFactory;
     }
 
     public static Builder builder() {
@@ -68,7 +73,7 @@ public final class HeosDiscovery {
     public CompletableFuture<List<DiscoveredDevice>> discoverAll(Consumer<DiscoveredDevice> onFound) {
         Objects.requireNonNull(onFound, "onFound");
         CompletableFuture<List<DiscoveredDevice>> result = new CompletableFuture<>();
-        Thread.ofVirtual().name("hellos-discovery").start(() -> {
+        Threads.start(threadFactory, "hellos-discovery", () -> {
             try {
                 result.complete(search(onFound, false));
             } catch (RuntimeException e) {
@@ -84,14 +89,14 @@ public final class HeosDiscovery {
      */
     public CompletableFuture<DiscoveredDevice> discoverFirst() {
         CompletableFuture<DiscoveredDevice> result = new CompletableFuture<>();
-        Thread.ofVirtual().name("hellos-discovery").start(() -> {
+        Threads.start(threadFactory, "hellos-discovery", () -> {
             try {
                 List<DiscoveredDevice> devices = search(device -> { }, true);
                 if (devices.isEmpty()) {
                     result.completeExceptionally(new HeosDiscoveryException(
                             "No HEOS device answered within " + timeout.toMillis() + " ms"));
                 } else {
-                    result.complete(devices.getFirst());
+                    result.complete(devices.get(0));
                 }
             } catch (RuntimeException e) {
                 result.completeExceptionally(e);
@@ -126,7 +131,7 @@ public final class HeosDiscovery {
                 Optional<DiscoveredDevice> device = parseResponse(text, packet.getAddress());
                 if (device.isPresent() && !found.containsKey(device.get().address())) {
                     found.put(device.get().address(), device.get());
-                    LOG.log(DEBUG, "Found HEOS device {0}", device.get().host());
+                    LOG.log(Level.FINE, "Found HEOS device {0}", device.get().host());
                     onFound.accept(device.get());
                     if (stopAfterFirst) {
                         break;
@@ -140,7 +145,7 @@ public final class HeosDiscovery {
     }
 
     String searchRequest() {
-        long mx = Math.clamp(timeout.toSeconds(), 1, 5);
+        long mx = Math.max(1, Math.min(timeout.toSeconds(), 5));
         return "M-SEARCH * HTTP/1.1\r\n"
                 + "HOST: 239.255.255.250:1900\r\n"
                 + "MAN: \"ssdp:discover\"\r\n"
@@ -188,6 +193,7 @@ public final class HeosDiscovery {
         private Duration timeout = Duration.ofSeconds(5);
         private InetAddress bindAddress;
         private InetSocketAddress target = SSDP_MULTICAST;
+        private ThreadFactory threadFactory;
 
         private Builder() {
         }
@@ -205,6 +211,18 @@ public final class HeosDiscovery {
         /** Local address to search from, to select a network interface. Default: any. */
         public Builder bindAddress(InetAddress bindAddress) {
             this.bindAddress = bindAddress;
+            return this;
+        }
+
+        /**
+         * Factory for the search thread, which is renamed to {@code hellos-discovery}. Default
+         * {@code null}: a virtual thread where available, a platform daemon thread otherwise
+         * (always on Android).
+         *
+         * @since 0.2.0
+         */
+        public Builder threadFactory(ThreadFactory threadFactory) {
+            this.threadFactory = threadFactory;
             return this;
         }
 

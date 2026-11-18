@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package org.hellos.connection;
 
-import static java.lang.System.Logger.Level.DEBUG;
-import static java.lang.System.Logger.Level.INFO;
-import static java.lang.System.Logger.Level.WARNING;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -19,7 +16,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadFactory;
 import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.hellos.cli.Commands;
 import org.hellos.cli.HeosCommand;
@@ -27,6 +27,7 @@ import org.hellos.cli.HeosCommandException;
 import org.hellos.cli.HeosConnectionException;
 import org.hellos.cli.HeosException;
 import org.hellos.cli.HeosMessage;
+import org.hellos.internal.Threads;
 
 /**
  * Low-level client for the HEOS CLI protocol.
@@ -54,7 +55,7 @@ import org.hellos.cli.HeosMessage;
  */
 public final class HeosClient implements AutoCloseable {
 
-    private static final System.Logger LOG = System.getLogger(HeosClient.class.getName());
+    private static final Logger LOG = Logger.getLogger(HeosClient.class.getName());
 
     private final List<String> hosts;
     private final int port;
@@ -65,11 +66,11 @@ public final class HeosClient implements AutoCloseable {
     private final Duration reconnectDelay;
     private final int maxReconnectAttempts;
     private final boolean changeEvents;
+    private final ThreadFactory threadFactory;
 
     private final List<Consumer<HeosMessage>> eventListeners = new CopyOnWriteArrayList<>();
     private final List<ConnectionListener> connectionListeners = new CopyOnWriteArrayList<>();
-    private final ExecutorService callbacks =
-            Executors.newSingleThreadExecutor(Thread.ofVirtual().name("hellos-callbacks").factory());
+    private final ExecutorService callbacks;
 
     private final Object lock = new Object();
     private ConnectionState state = ConnectionState.DISCONNECTED;
@@ -89,6 +90,8 @@ public final class HeosClient implements AutoCloseable {
         this.reconnectDelay = builder.reconnectDelay;
         this.maxReconnectAttempts = builder.maxReconnectAttempts;
         this.changeEvents = builder.changeEvents;
+        this.threadFactory = builder.threadFactory;
+        this.callbacks = Executors.newSingleThreadExecutor(Threads.factory(threadFactory, "hellos-callbacks"));
     }
 
     public static Builder builder() {
@@ -119,7 +122,7 @@ public final class HeosClient implements AutoCloseable {
             }
             signal = connectedSignal.copy();
         }
-        Thread.ofVirtual().name("hellos-connect").start(() -> {
+        Threads.start(threadFactory, "hellos-connect", () -> {
             try {
                 activate(openFirstAvailable(null));
             } catch (HeosException e) {
@@ -236,7 +239,7 @@ public final class HeosClient implements AutoCloseable {
     private Session openFirstAvailable(String preferredHost) {
         List<String> order = new ArrayList<>(hosts);
         if (preferredHost != null && order.remove(preferredHost)) {
-            order.addFirst(preferredHost);
+            order.add(0, preferredHost);
         }
         HeosConnectionException failure = null;
         for (String host : order) {
@@ -246,7 +249,7 @@ public final class HeosClient implements AutoCloseable {
             try {
                 return openSession(host);
             } catch (HeosException e) {
-                LOG.log(DEBUG, "Connecting to {0} failed: {1}", host, e.getMessage());
+                LOG.log(Level.FINE, "Connecting to {0} failed: {1}", new Object[] {host, e.getMessage()});
                 if (failure == null) {
                     failure = new HeosConnectionException("Unable to connect to any HEOS host of " + hosts);
                 }
@@ -260,10 +263,10 @@ public final class HeosClient implements AutoCloseable {
         Session newSession = new Session(host);
         try {
             newSession.commands = HeosConnection.open(host, port, connectTimeout, commandTimeout,
-                    this::dispatchEvent, cause -> connectionLost(newSession, cause));
+                    this::dispatchEvent, cause -> connectionLost(newSession, cause), threadFactory);
             if (changeEvents) {
                 newSession.events = HeosConnection.open(host, port, connectTimeout, commandTimeout,
-                        this::dispatchEvent, cause -> connectionLost(newSession, cause));
+                        this::dispatchEvent, cause -> connectionLost(newSession, cause), threadFactory);
                 await(newSession.events.send(HeosCommand.builder(Commands.SYSTEM_REGISTER_FOR_CHANGE_EVENTS)
                         .attribute("enable", "on").build()));
             }
@@ -281,7 +284,7 @@ public final class HeosClient implements AutoCloseable {
                 lastHost = newSession.host;
                 setStateLocked(ConnectionState.CONNECTED, newSession.host, null);
                 startHeartbeatLocked();
-                LOG.log(INFO, "Connected to HEOS device {0}", newSession.host);
+                LOG.log(Level.INFO, "Connected to HEOS device {0}", newSession.host);
                 return;
             }
         }
@@ -298,7 +301,8 @@ public final class HeosClient implements AutoCloseable {
                 return;
             }
             session = null;
-            LOG.log(WARNING, "Connection to HEOS device {0} lost: {1}", lostSession.host, cause.getMessage());
+            LOG.log(Level.WARNING, "Connection to HEOS device {0} lost: {1}",
+                    new Object[] {lostSession.host, cause.getMessage()});
             if (reconnect) {
                 setStateLocked(ConnectionState.RECONNECTING, lostSession.host, cause);
                 startReconnectLocked(lostSession.host);
@@ -313,14 +317,14 @@ public final class HeosClient implements AutoCloseable {
         if (reconnectThread != null && reconnectThread.isAlive()) {
             return;
         }
-        reconnectThread = Thread.ofVirtual().name("hellos-reconnect").start(() -> reconnectLoop(preferredHost));
+        reconnectThread = Threads.start(threadFactory, "hellos-reconnect", () -> reconnectLoop(preferredHost));
     }
 
     private void reconnectLoop(String preferredHost) {
         int attempt = 0;
         try {
             while (true) {
-                Thread.sleep(reconnectDelay);
+                Thread.sleep(reconnectDelay.toMillis());
                 synchronized (lock) {
                     if (state != ConnectionState.RECONNECTING) {
                         return;
@@ -331,7 +335,7 @@ public final class HeosClient implements AutoCloseable {
                     activate(openFirstAvailable(preferredHost));
                     return;
                 } catch (HeosException e) {
-                    LOG.log(DEBUG, "Reconnect attempt {0} failed: {1}", attempt, e.getMessage());
+                    LOG.log(Level.FINE, "Reconnect attempt {0} failed: {1}", new Object[] {attempt, e.getMessage()});
                     if (maxReconnectAttempts > 0 && attempt >= maxReconnectAttempts) {
                         synchronized (lock) {
                             if (state == ConnectionState.RECONNECTING) {
@@ -357,7 +361,7 @@ public final class HeosClient implements AutoCloseable {
         if (heartbeatInterval.isZero() || (heartbeatThread != null && heartbeatThread.isAlive())) {
             return;
         }
-        heartbeatThread = Thread.ofVirtual().name("hellos-heartbeat").start(this::heartbeatLoop);
+        heartbeatThread = Threads.start(threadFactory, "hellos-heartbeat", this::heartbeatLoop);
     }
 
     private void heartbeatLoop() {
@@ -367,7 +371,7 @@ public final class HeosClient implements AutoCloseable {
         }
         try {
             while (true) {
-                Thread.sleep(period);
+                Thread.sleep(period.toMillis());
                 Session current;
                 synchronized (lock) {
                     if (state == ConnectionState.CLOSED) {
@@ -384,7 +388,7 @@ public final class HeosClient implements AutoCloseable {
                         heartbeatIfIdle(current.events);
                     }
                 } catch (HeosCommandException e) {
-                    LOG.log(DEBUG, "Heartbeat answered with failure: {0}", e.getMessage());
+                    LOG.log(Level.FINE, "Heartbeat answered with failure: {0}", e.getMessage());
                 } catch (HeosException e) {
                     connectionLost(current, e instanceof HeosConnectionException hce
                             ? hce
@@ -410,7 +414,7 @@ public final class HeosClient implements AutoCloseable {
                 try {
                     listener.accept(event);
                 } catch (RuntimeException e) {
-                    LOG.log(WARNING, "Event listener failed for " + event.command(), e);
+                    LOG.log(Level.WARNING, "Event listener failed for " + event.command(), e);
                 }
             }
         });
@@ -440,7 +444,7 @@ public final class HeosClient implements AutoCloseable {
                 try {
                     listener.onStateChanged(newState, host, cause);
                 } catch (RuntimeException e) {
-                    LOG.log(WARNING, "Connection listener failed", e);
+                    LOG.log(Level.WARNING, "Connection listener failed", e);
                 }
             }
         });
@@ -450,7 +454,7 @@ public final class HeosClient implements AutoCloseable {
         try {
             callbacks.execute(task);
         } catch (RejectedExecutionException e) {
-            LOG.log(DEBUG, "Client closed, dropping callback");
+            LOG.log(Level.FINE, "Client closed, dropping callback");
         }
     }
 
@@ -514,6 +518,7 @@ public final class HeosClient implements AutoCloseable {
         private Duration reconnectDelay = Duration.ofSeconds(2);
         private int maxReconnectAttempts;
         private boolean changeEvents = true;
+        private ThreadFactory threadFactory;
 
         private Builder() {
         }
@@ -587,6 +592,19 @@ public final class HeosClient implements AutoCloseable {
         /** Whether to open the event connection and register for change events. Default {@code true}. */
         public Builder changeEvents(boolean enabled) {
             this.changeEvents = enabled;
+            return this;
+        }
+
+        /**
+         * Factory for the threads of the client and its connections (reader, writer, heartbeat,
+         * reconnect, callbacks). The threads are renamed to {@code hellos-…}. Default
+         * {@code null}: virtual threads where available, named platform daemon threads otherwise
+         * (always on Android).
+         *
+         * @since 0.2.0
+         */
+        public Builder threadFactory(ThreadFactory threadFactory) {
+            this.threadFactory = threadFactory;
             return this;
         }
 

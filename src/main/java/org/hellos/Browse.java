@@ -35,7 +35,7 @@ import org.hellos.model.ServiceOptions;
  *
  * <pre>{@code
  * BrowseResult favorites = heos.browse().browse(MusicSources.FAVORITES).join();
- * heos.player(pid).play(favorites, favorites.items().getFirst()).join();
+ * heos.player(pid).play(favorites, favorites.items().get(0)).join();
  * }</pre>
  */
 public final class Browse {
@@ -72,7 +72,7 @@ public final class Browse {
             if (sources.isEmpty()) {
                 throw new org.hellos.cli.HeosProtocolException("No source info for sid " + sourceId);
             }
-            return sources.getFirst();
+            return sources.get(0);
         });
     }
 

@@ -113,4 +113,16 @@ class HeosCommandTest {
                 .isEqualTo(HeosCommand.of(Commands.PLAYER_GET_VOLUME, Map.of("pid", "1")))
                 .hasSameHashCodeAs(HeosCommand.of(Commands.PLAYER_GET_VOLUME, Map.of("pid", 1)));
     }
+
+    @Test
+    void attributeMapKeepsOrderAndIsUnmodifiable() {
+        HeosCommand command = HeosCommand.builder(Commands.PLAYER_SET_VOLUME).attribute("pid", 1).attribute("level", 20).build();
+
+        assertThat(command.attributeMap()).containsExactly(
+                org.assertj.core.api.Assertions.entry("pid", "1"),
+                org.assertj.core.api.Assertions.entry("level", "20"));
+        assertThat(command.attributes()).isEqualTo(command.attributeMap());
+        assertThatThrownBy(() -> command.attributeMap().put("x", "y")).isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> command.attributes().putFirst("x", "y")).isInstanceOf(UnsupportedOperationException.class);
+    }
 }

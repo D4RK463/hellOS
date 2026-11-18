@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package org.hellos.internal;
 
-import static java.lang.System.Logger.Level.DEBUG;
 
 import java.time.Duration;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.hellos.cli.Events;
 import org.hellos.cli.HeosMessage;
@@ -17,7 +18,7 @@ import org.hellos.model.RepeatMode;
 /** Converts raw change events into {@link HeosEvent}s. */
 public final class EventParser {
 
-    private static final System.Logger LOG = System.getLogger(EventParser.class.getName());
+    private static final Logger LOG = Logger.getLogger(EventParser.class.getName());
 
     private EventParser() {
     }
@@ -27,7 +28,7 @@ public final class EventParser {
         try {
             return parseStrict(message);
         } catch (HeosProtocolException | ArithmeticException e) {
-            LOG.log(DEBUG, "Cannot parse event {0}: {1}", message, e.getMessage());
+            LOG.log(Level.FINE, "Cannot parse event {0}: {1}", new Object[] {message, e.getMessage()});
             return new HeosEvent.UnknownEvent(message);
         }
     }

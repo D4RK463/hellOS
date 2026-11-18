@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package org.hellos.connection;
 
-import static java.lang.System.Logger.Level.DEBUG;
-import static java.lang.System.Logger.Level.WARNING;
-
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -18,10 +15,13 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.hellos.cli.Commands;
 import org.hellos.cli.HeosCommand;
@@ -32,6 +32,7 @@ import org.hellos.cli.HeosMessage;
 import org.hellos.cli.HeosProtocolException;
 import org.hellos.cli.HeosResponseParser;
 import org.hellos.cli.HeosTimeoutException;
+import org.hellos.internal.Threads;
 
 /**
  * A single TCP connection to the CLI port of a HEOS device.
@@ -51,7 +52,7 @@ public final class HeosConnection implements AutoCloseable {
 
     static final int MAX_FRAME_BYTES = 16 * 1024 * 1024;
 
-    private static final System.Logger LOG = System.getLogger(HeosConnection.class.getName());
+    private static final Logger LOG = Logger.getLogger(HeosConnection.class.getName());
 
     private final String host;
     private final int port;
@@ -68,7 +69,8 @@ public final class HeosConnection implements AutoCloseable {
     private volatile Instant lastActivity = Instant.now();
 
     private HeosConnection(String host, int port, Duration commandTimeout, Socket socket,
-                           Consumer<HeosMessage> eventSink, Consumer<HeosException> closeHandler) throws IOException {
+                           Consumer<HeosMessage> eventSink, Consumer<HeosException> closeHandler,
+                           ThreadFactory threadFactory) throws IOException {
         this.host = host;
         this.port = port;
         this.commandTimeout = commandTimeout;
@@ -77,8 +79,8 @@ public final class HeosConnection implements AutoCloseable {
         this.eventSink = eventSink;
         this.closeHandler = closeHandler;
         String suffix = host + ":" + port;
-        this.readerThread = Thread.ofVirtual().name("hellos-reader-" + suffix).unstarted(this::readLoop);
-        this.writerThread = Thread.ofVirtual().name("hellos-writer-" + suffix).unstarted(this::writeLoop);
+        this.readerThread = Threads.newThread(threadFactory, "hellos-reader-" + suffix, this::readLoop);
+        this.writerThread = Threads.newThread(threadFactory, "hellos-writer-" + suffix, this::writeLoop);
     }
 
     /**
@@ -91,6 +93,16 @@ public final class HeosConnection implements AutoCloseable {
      */
     public static HeosConnection open(String host, int port, Duration connectTimeout, Duration commandTimeout,
                                       Consumer<HeosMessage> eventSink, Consumer<HeosException> closeHandler) {
+        return open(host, port, connectTimeout, commandTimeout, eventSink, closeHandler, null);
+    }
+
+    /**
+     * Like {@link #open(String, int, Duration, Duration, Consumer, Consumer)}, with the factory for
+     * the reader and writer thread ({@code null} for the default).
+     */
+    static HeosConnection open(String host, int port, Duration connectTimeout, Duration commandTimeout,
+                               Consumer<HeosMessage> eventSink, Consumer<HeosException> closeHandler,
+                               ThreadFactory threadFactory) {
         Objects.requireNonNull(host, "host");
         Objects.requireNonNull(eventSink, "eventSink");
         Objects.requireNonNull(closeHandler, "closeHandler");
@@ -99,10 +111,11 @@ public final class HeosConnection implements AutoCloseable {
             socket.setTcpNoDelay(true);
             socket.setKeepAlive(true);
             socket.connect(new InetSocketAddress(host, port), Math.toIntExact(connectTimeout.toMillis()));
-            HeosConnection connection = new HeosConnection(host, port, commandTimeout, socket, eventSink, closeHandler);
+            HeosConnection connection = new HeosConnection(host, port, commandTimeout, socket, eventSink, closeHandler,
+                    threadFactory);
             connection.readerThread.start();
             connection.writerThread.start();
-            LOG.log(DEBUG, "Connected to {0}:{1,number,#}", host, port);
+            LOG.log(Level.FINE, "Connected to {0}:{1,number,#}", new Object[] {host, port});
             return connection;
         } catch (IOException e) {
             closeQuietly(socket);
@@ -169,7 +182,7 @@ public final class HeosConnection implements AutoCloseable {
                     out.write(pending.command().toWireFormat().getBytes(StandardCharsets.UTF_8));
                     out.flush();
                     lastActivity = Instant.now();
-                    LOG.log(DEBUG, "{0} -> {1}", host, pending.command());
+                    LOG.log(Level.FINE, "{0} -> {1}", new Object[] {host, pending.command()});
                 } catch (IOException e) {
                     HeosConnectionException failure = new HeosConnectionException(
                             "Failed to send " + pending.command().name() + " to " + host, e);
@@ -194,7 +207,7 @@ public final class HeosConnection implements AutoCloseable {
         try {
             pending.future().get(commandTimeout.toMillis(), TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
-            LOG.log(DEBUG, "{0}: no response to {1}", host, pending.command().name());
+            LOG.log(Level.FINE, "{0}: no response to {1}", new Object[] {host, pending.command().name()});
             pending.future().completeExceptionally(new HeosTimeoutException(pending.command().name(), commandTimeout));
         } catch (ExecutionException | CancellationException e) {
             // the outcome was already delivered to the caller
@@ -225,32 +238,32 @@ public final class HeosConnection implements AutoCloseable {
         try {
             message = HeosResponseParser.parse(frame);
         } catch (HeosProtocolException e) {
-            LOG.log(WARNING, "{0}: ignoring malformed message: {1}", host, e.getMessage());
+            LOG.log(Level.WARNING, "{0}: ignoring malformed message: {1}", new Object[] {host, e.getMessage()});
             return;
         }
         if (message.isUnderProcess()) {
-            LOG.log(DEBUG, "{0}: command under process: {1}", host, message.command());
+            LOG.log(Level.FINE, "{0}: command under process: {1}", new Object[] {host, message.command()});
             return;
         }
         if (message.isEvent()) {
-            LOG.log(DEBUG, "{0} <- event {1}", host, message);
+            LOG.log(Level.FINE, "{0} <- event {1}", new Object[] {host, message});
             try {
                 eventSink.accept(message);
             } catch (RuntimeException e) {
-                LOG.log(WARNING, "Event sink failed for " + message.command(), e);
+                LOG.log(Level.WARNING, "Event sink failed for " + message.command(), e);
             }
             return;
         }
         PendingCommand pending = inFlight;
         if (pending != null && pending.command().name().equals(message.command())) {
-            LOG.log(DEBUG, "{0} <- {1}", host, message);
+            LOG.log(Level.FINE, "{0} <- {1}", new Object[] {host, message});
             if (message.isFailure()) {
                 pending.future().completeExceptionally(HeosCommandException.from(message));
             } else {
                 pending.future().complete(message);
             }
         } else {
-            LOG.log(DEBUG, "{0}: unexpected response {1}", host, message);
+            LOG.log(Level.FINE, "{0}: unexpected response {1}", new Object[] {host, message});
         }
     }
 
@@ -267,12 +280,12 @@ public final class HeosConnection implements AutoCloseable {
         }
         failQueued(failure);
         if (cause != null) {
-            LOG.log(DEBUG, "Connection to {0} closed: {1}", host, cause.getMessage());
+            LOG.log(Level.FINE, "Connection to {0} closed: {1}", new Object[] {host, cause.getMessage()});
         }
         try {
             closeHandler.accept(cause);
         } catch (RuntimeException e) {
-            LOG.log(WARNING, "Close handler failed", e);
+            LOG.log(Level.WARNING, "Close handler failed", e);
         }
     }
 

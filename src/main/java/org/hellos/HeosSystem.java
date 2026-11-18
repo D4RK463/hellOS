@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package org.hellos;
 
-import static java.lang.System.Logger.Level.WARNING;
 import static org.hellos.Requests.command;
 
 import java.time.Duration;
@@ -13,6 +12,8 @@ import java.util.Objects;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.hellos.cli.Commands;
 import org.hellos.cli.HeosCommand;
@@ -51,7 +52,7 @@ import org.hellos.model.PlayerInfo;
  */
 public final class HeosSystem implements AutoCloseable {
 
-    private static final System.Logger LOG = System.getLogger(HeosSystem.class.getName());
+    private static final Logger LOG = Logger.getLogger(HeosSystem.class.getName());
 
     private final HeosClient client;
     private final Credentials credentials;
@@ -228,7 +229,7 @@ public final class HeosSystem implements AutoCloseable {
         public void onStateChanged(ConnectionState state, String host, org.hellos.cli.HeosException cause) {
             if (state == ConnectionState.CONNECTED && previous == ConnectionState.RECONNECTING) {
                 account.ensureSignedIn(credentials).exceptionally(e -> {
-                    LOG.log(WARNING, "Sign-in after reconnect failed: {0}", e.getMessage());
+                    LOG.log(Level.WARNING, "Sign-in after reconnect failed: {0}", e.getMessage());
                     return null;
                 });
             }

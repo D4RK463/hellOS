@@ -51,7 +51,7 @@ class ReadmeExamplesTest extends HeosSystemTestBase {
 
         heos.connect()
                 .thenCompose(h -> h.browse().browse(MusicSources.FAVORITES))
-                .thenCompose(favorites -> heos.player(-409995282L).play(favorites, favorites.items().getFirst()))
+                .thenCompose(favorites -> heos.player(-409995282L).play(favorites, favorites.items().get(0)))
                 .join();
 
         assertThat(lastRequest(Commands.BROWSE_PLAY_STREAM).attributes()).containsEntry("mid", "s7332");
